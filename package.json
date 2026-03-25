@@ -1,0 +1,61 @@
+{
+  "name": "recall-manager",
+  "version": "1.0.0",
+  "description": "Recall Manager - Electron App with SQLite and Nodemailer",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "dist": "electron-vite build && electron-builder --win",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.recall-manager",
+    "productName": "Recall Manager",
+    "directories": { "output": "dist" },
+    "files": ["out/**/*"],
+    "extraResources": [{ "from": "resources/logo.png", "to": "logo.png" }],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "resources/logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["de_DE"],
+      "language": "1031"
+    }
+  },
+  "dependencies": {
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@fontsource/ibm-plex-mono": "^5.2.7",
+    "@fontsource/ibm-plex-sans": "^5.2.8",
+    "better-sqlite3": "^11.7.0",
+    "nodemailer": "^6.9.16",
+    "react-hook-form": "^7.72.0"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-ts": "^3.0.0",
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron-toolkit/utils": "^3.0.0",
+    "@electron/rebuild": "^3.7.1",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.10",
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.27",
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^3.0.0",
+    "postcss": "^8.5.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.1"
+  }
+}
