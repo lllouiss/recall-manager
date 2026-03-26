@@ -81,11 +81,6 @@ export default function CallsPage() {
                   <div className="flex items-baseline gap-[10px] mb-1">
                     <span className="font-mono text-[12px] text-text font-semibold">{c.anrufer}</span>
                     {c.firma && <span className="font-mono text-[11px] text-[#666]">{c.firma}</span>}
-                    {c.verfuegbarkeit_typ !== 'none' && (
-                      <span className="font-mono text-[9px] text-accent tracking-[0.1em] uppercase ml-auto">
-                        Verfügbar
-                      </span>
-                    )}
                   </div>
                   <div className="flex gap-4">
                     <span className="font-mono text-[10px] text-muted">{c.telefon}</span>

@@ -8,6 +8,8 @@ export interface SmtpSettings {
   smtp_user: string
   smtp_pass: string
   smtp_from: string
+  smtp_bcc_self: string
+  smtp_bcc_addr: string
   sig_name: string
   sig_company: string
   sig_address1: string
@@ -18,7 +20,7 @@ export interface SmtpSettings {
 }
 
 const KEYS: (keyof SmtpSettings)[] = [
-  'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from',
+  'smtp_host', 'smtp_port', 'smtp_secure', 'smtp_user', 'smtp_pass', 'smtp_from', 'smtp_bcc_self', 'smtp_bcc_addr',
   'sig_name', 'sig_company', 'sig_address1', 'sig_address2', 'sig_phone', 'sig_email', 'sig_website'
 ]
 
@@ -43,7 +45,7 @@ export function registerSettingsHandlers(ipcMain: IpcMain): void {
       'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)'
     )
     const saveAll = db.transaction((s: SmtpSettings) => {
-      for (const [k, v] of Object.entries(s)) upsert.run(k, v)
+      for (const [k, v] of Object.entries(s)) upsert.run(k, v == null ? '' : String(v))
     })
     saveAll(data)
     return { success: true }

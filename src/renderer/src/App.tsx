@@ -92,7 +92,7 @@ export default function App() {
           </nav>
 
           <div className="px-5 py-3 border-t border-border font-mono text-[9px] tracking-[0.1em] text-[#3a3a3a]">
-            RECALL MANAGER v1.0
+            RECALL MANAGER v{__APP_VERSION__}
           </div>
         </aside>
 

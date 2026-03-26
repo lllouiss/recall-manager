@@ -2,14 +2,11 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import type { Contact } from '../../../preload/index.d'
 
-type VerfTyp = 'none' | 'datetime' | 'freitext'
-
 interface FormValues {
   anrufer: string
   firma: string
   telefon: string
   anliegen: string
-  verfuegbarkeitTyp: VerfTyp
   verfuegbarkeitWert: string
   empfaengerIds: number[]
   ccIds: number[]
@@ -23,10 +20,9 @@ export default function CallFormPage() {
   const [sending, setSending] = useState(false)
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<FormValues>({
-    defaultValues: { anrufer: '', firma: '', telefon: '', anliegen: '', verfuegbarkeitTyp: 'none', verfuegbarkeitWert: '', empfaengerIds: [], ccIds: [] }
+    defaultValues: { anrufer: '', firma: '', telefon: '', anliegen: '', verfuegbarkeitWert: '', empfaengerIds: [], ccIds: [] }
   })
 
-  const verfTyp = watch('verfuegbarkeitTyp')
   const empfaengerIds = watch('empfaengerIds')
   const ccIds = watch('ccIds')
 
@@ -39,6 +35,31 @@ export default function CallFormPage() {
     setValue('ccIds', role === 'cc' ? [...ccList, id] : ccList)
   }
 
+  function buildCallPayload(data: FormValues) {
+    return {
+      anrufer: data.anrufer, firma: data.firma, telefon: data.telefon,
+      anliegen: data.anliegen,
+      verfuegbarkeitTyp: data.verfuegbarkeitWert ? 'freitext' : 'none',
+      verfuegbarkeitWert: data.verfuegbarkeitWert,
+      empfaengerIds: data.empfaengerIds,
+      ccIds: data.ccIds
+    }
+  }
+
+  async function saveCallRecord(data: FormValues) {
+    const empfaengerDetails = [
+      ...contacts.filter((c) => data.empfaengerIds.includes(c.id)).map((c) => ({ name: c.name, email: c.email, rolle: 'to' as const })),
+      ...contacts.filter((c) => data.ccIds.includes(c.id)).map((c) => ({ name: c.name, email: c.email, rolle: 'cc' as const }))
+    ]
+    await window.api.calls.create({
+      anrufer: data.anrufer, firma: data.firma, telefon: data.telefon,
+      anliegen: data.anliegen,
+      verfuegbarkeit_typ: data.verfuegbarkeitWert ? 'freitext' : 'none',
+      verfuegbarkeit_wert: data.verfuegbarkeitWert,
+      empfaenger: JSON.stringify(empfaengerDetails)
+    })
+  }
+
   async function onSubmit(data: FormValues) {
     if (data.empfaengerIds.length === 0) {
       setStatus({ type: 'error', msg: 'Mindestens einen Empfänger (An) auswählen.' })
@@ -47,31 +68,28 @@ export default function CallFormPage() {
     setSending(true)
     setStatus(null)
     try {
-      const empfaengerDetails = [
-        ...contacts.filter((c) => data.empfaengerIds.includes(c.id)).map((c) => ({ name: c.name, email: c.email, rolle: 'to' as const })),
-        ...contacts.filter((c) => data.ccIds.includes(c.id)).map((c) => ({ name: c.name, email: c.email, rolle: 'cc' as const }))
-      ]
-
-      const result = await window.api.mail.send({
-        anrufer: data.anrufer, firma: data.firma, telefon: data.telefon,
-        anliegen: data.anliegen,
-        verfuegbarkeitTyp: data.verfuegbarkeitTyp,
-        verfuegbarkeitWert: data.verfuegbarkeitWert,
-        empfaengerIds: data.empfaengerIds,
-        ccIds: data.ccIds
-      })
-
-      await window.api.calls.create({
-        anrufer: data.anrufer,
-        firma: data.firma,
-        telefon: data.telefon,
-        anliegen: data.anliegen,
-        verfuegbarkeit_typ: data.verfuegbarkeitTyp,
-        verfuegbarkeit_wert: data.verfuegbarkeitWert,
-        empfaenger: JSON.stringify(empfaengerDetails)
-      })
-
+      const result = await window.api.mail.send(buildCallPayload(data))
+      await saveCallRecord(data)
       setStatus({ type: 'success', msg: `E-Mail erfolgreich an ${result.sent} Empfänger versandt.` })
+      reset()
+    } catch (err) {
+      setStatus({ type: 'error', msg: `Fehler: ${err instanceof Error ? err.message : String(err)}` })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function onOpenOutlook(data: FormValues) {
+    if (data.empfaengerIds.length === 0) {
+      setStatus({ type: 'error', msg: 'Mindestens einen Empfänger (An) auswählen.' })
+      return
+    }
+    setSending(true)
+    setStatus(null)
+    try {
+      await window.api.mail.compose(buildCallPayload(data))
+      await saveCallRecord(data)
+      setStatus({ type: 'success', msg: 'E-Mail in Outlook geöffnet.' })
       reset()
     } catch (err) {
       setStatus({ type: 'error', msg: `Fehler: ${err instanceof Error ? err.message : String(err)}` })
@@ -114,39 +132,10 @@ export default function CallFormPage() {
         </div>
 
         {/* Verfügbarkeit */}
-        <div className="mb-7 py-[18px] border-y border-border">
-          <div className="flex items-center gap-4">
-            <span className="field-label mb-0 shrink-0">Verfügbarkeit</span>
-            <div className="flex border border-border bg-[#111]">
-              {(['none', 'datetime', 'freitext'] as const).map((opt) => {
-                const labels = { none: 'Keine Angabe', datetime: 'Datum & Zeit', freitext: 'Freitext' }
-                const active = verfTyp === opt
-                return (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => { setValue('verfuegbarkeitTyp', opt); setValue('verfuegbarkeitWert', '') }}
-                    className={`py-[7px] px-[14px] font-mono text-[11px] tracking-[0.04em] cursor-pointer transition-[background,color] duration-100 border-t-0 border-b-0 border-l-0 border-solid ${
-                      opt !== 'freitext' ? 'border-r border-border' : 'border-r-0'
-                    } ${active ? 'bg-accent text-white' : 'bg-transparent text-[#666]'}`}
-                  >
-                    {labels[opt]}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          {verfTyp === 'datetime' && (
-            <div className="mt-[14px]">
-              <input type="datetime-local" className="field-input w-auto" {...register('verfuegbarkeitWert')} />
-            </div>
-          )}
-          {verfTyp === 'freitext' && (
-            <div className="mt-[14px]">
-              <input className="field-input" placeholder="z. B. Morgen 08:00–09:00 und 14:00–16:00"
-                {...register('verfuegbarkeitWert')} />
-            </div>
-          )}
+        <div className="mb-7">
+          <label className="field-label">Verfügbarkeit</label>
+          <input className="field-input" placeholder="z. B. Morgen 08:00–09:00 und 14:00–16:00"
+            {...register('verfuegbarkeitWert')} />
         </div>
 
         {/* Empfänger */}
@@ -179,7 +168,7 @@ export default function CallFormPage() {
         </div>
 
         {/* Submit */}
-        <div className="flex items-center gap-5 mt-2 pt-7 border-t border-border">
+        <div className="flex flex-wrap items-center gap-3 mt-2 pt-7 border-t border-border">
           <button type="submit" className="btn btn-primary" disabled={sending}>
             {sending ? 'Sende…' : (
               <>
@@ -189,6 +178,17 @@ export default function CallFormPage() {
                 Absenden
               </>
             )}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            disabled={sending}
+            onClick={handleSubmit(onOpenOutlook)}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/>
+            </svg>
+            In Outlook öffnen
           </button>
           {status && (
             <span className={`font-mono text-[11px] tracking-[0.03em] ${status.type === 'success' ? 'text-success' : 'text-error'}`}>

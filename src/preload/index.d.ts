@@ -29,7 +29,7 @@ export interface Call {
 
 export interface SmtpSettings {
   smtp_host: string; smtp_port: string; smtp_secure: string
-  smtp_user: string; smtp_pass: string; smtp_from: string
+  smtp_user: string; smtp_pass: string; smtp_from: string; smtp_bcc_self: string; smtp_bcc_addr: string
   sig_name: string; sig_company: string
   sig_address1: string; sig_address2: string
   sig_phone: string; sig_email: string; sig_website: string
@@ -60,6 +60,7 @@ declare global {
       }
       mail: {
         send: (data: CallData) => Promise<{ sent: number }>
+        compose: (data: CallData) => Promise<{ success: boolean }>
         test: (testEmail: string) => Promise<{ success: boolean }>
       }
       settings: {

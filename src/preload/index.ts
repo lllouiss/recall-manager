@@ -23,6 +23,7 @@ const api = {
   },
   mail: {
     send: (data: CallData) => ipcRenderer.invoke('mail:send', data),
+    compose: (data: CallData) => ipcRenderer.invoke('mail:compose', data),
     test: (testEmail: string) => ipcRenderer.invoke('mail:test', testEmail)
   },
   settings: {

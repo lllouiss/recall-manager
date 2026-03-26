@@ -12,10 +12,10 @@ export default function SettingsPage() {
   const [exportStatus, setExportStatus] = useState<Status>(null)
   const [importStatus, setImportStatus] = useState<Status>(null)
 
-  const { register, handleSubmit, reset } = useForm<SmtpSettings>({
+  const { register, handleSubmit, reset, watch, setValue } = useForm<SmtpSettings>({
     defaultValues: {
       smtp_host: '', smtp_port: '587', smtp_secure: 'false',
-      smtp_user: '', smtp_pass: '', smtp_from: '',
+      smtp_user: '', smtp_pass: '', smtp_from: '', smtp_bcc_self: 'false', smtp_bcc_addr: '',
       sig_name: '', sig_company: '', sig_address1: '',
       sig_address2: '', sig_phone: '', sig_email: '', sig_website: ''
     }
@@ -96,11 +96,8 @@ export default function SettingsPage() {
             <input
               type="checkbox"
               className="w-[13px] h-[13px] accent-accent"
-              {...register('smtp_secure')}
-              onChange={(e) => {
-                const field = register('smtp_secure')
-                field.onChange({ target: { value: e.target.checked ? 'true' : 'false', name: 'smtp_secure' } })
-              }}
+              checked={watch('smtp_secure') === 'true'}
+              onChange={(e) => setValue('smtp_secure', e.target.checked ? 'true' : 'false')}
             />
             SSL / TLS verwenden (Port 465)
           </label>
@@ -116,9 +113,33 @@ export default function SettingsPage() {
           <input className="field-input" type="password" placeholder="••••••••" {...register('smtp_pass')} />
         </div>
 
-        <div className="mb-10">
+        <div className="mb-7">
           <label className="field-label">Absender (From)</label>
           <input className="field-input" placeholder='"Recall Manager" <noreply@example.com>' {...register('smtp_from')} />
+        </div>
+
+        <div className="mb-5">
+          <label className="flex items-center gap-[10px] font-mono text-[11px] text-[#888] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              className="w-[13px] h-[13px] accent-accent"
+              checked={watch('smtp_bcc_self') === 'true'}
+              onChange={(e) => setValue('smtp_bcc_self', e.target.checked ? 'true' : 'false')}
+            />
+            Kopie automatisch an folgende Adresse senden
+          </label>
+        </div>
+
+        <div className="mb-10">
+          <input
+            className="field-input"
+            placeholder="eigene@email.ch"
+            {...register('smtp_bcc_addr')}
+            disabled={watch('smtp_bcc_self') !== 'true'}
+          />
+          <p className="font-mono text-[10px] text-[#555] mt-2">
+            Wenn leer, wird die Absender-Adresse (From) verwendet.
+          </p>
         </div>
 
         {/* ── Signatur ─────────────────────────────────── */}
@@ -153,7 +174,7 @@ export default function SettingsPage() {
           </div>
           <div>
             <label className="field-label">E-Mail (Signatur)</label>
-            <input className="field-input" type="email" placeholder="info@beispiel.ch" {...register('sig_email')} />
+            <input className="field-input" placeholder="info@beispiel.ch" {...register('sig_email')} />
           </div>
         </div>
 

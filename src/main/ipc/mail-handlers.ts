@@ -1,4 +1,7 @@
 import type { IpcMain } from 'electron'
+import { shell, app } from 'electron'
+import * as fs from 'fs'
+import * as path from 'path'
 import nodemailer from 'nodemailer'
 import { getDb } from '../db'
 import { getSmtpSettings } from './settings-handlers'
@@ -38,16 +41,14 @@ function buildHtml(d: CallData, recipientFirstName: string): string {
   const sigAddress1 = cfg.sig_address1 ? `${cfg.sig_address1}<br>` : ''
   const sigAddress2 = cfg.sig_address2 ? `${cfg.sig_address2}` : ''
   const sigPhone = cfg.sig_phone ? `<p style="margin:0 0 10px 0;font-size:12px;color:#555;">T ${cfg.sig_phone}</p>` : ''
-  const sigEmail = cfg.sig_email ? `<a href="mailto:${cfg.sig_email}" style="color:#e85d04;text-decoration:none;">${cfg.sig_email}</a><br>` : ''
-  const sigWebsite = cfg.sig_website ? `<a href="http://${cfg.sig_website.replace(/^https?:\/\//, '')}" style="color:#e85d04;text-decoration:none;">${cfg.sig_website}</a>` : ''
+  const sigEmail = cfg.sig_email ? `<a href="mailto:${cfg.sig_email}" style="color:#004279;text-decoration:none;">${cfg.sig_email}</a><br>` : ''
+  const sigWebsite = cfg.sig_website ? `<a href="http://${cfg.sig_website.replace(/^https?:\/\//, '')}" style="color:#004279;text-decoration:none;">${cfg.sig_website}</a>` : ''
 
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8">
 <!--[if mso]><style>p{margin:0;mso-para-margin:0;}</style><![endif]-->
 </head>
 <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#1a1a1a;">
-<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:36px 44px 40px 44px;">
-
   <p style="margin:0 0 18px 0;mso-para-margin:0 0 18px 0;font-size:15px;">Ciao ${recipientFirstName}</p>
 
   <div style="margin-bottom:18px;">
@@ -67,8 +68,6 @@ function buildHtml(d: CallData, recipientFirstName: string): string {
   ${(sigEmail || sigWebsite) ? `<p style="margin:0 0 14px 0;font-size:12px;">${sigEmail}${sigWebsite}</p>` : ''}
 
   <hr style="border:none;border-top:1px solid #d4d4d4;margin:0;width:200px;text-align:left;">
-
-</td></tr></table>
 </body></html>`
 }
 
@@ -100,7 +99,55 @@ export function registerMailHandlers(ipcMain: IpcMain): void {
       subject,
       html,
     })
+
+    if (cfg.smtp_bcc_self === 'true' && (cfg.smtp_bcc_addr || cfg.smtp_from)) {
+      await transport.sendMail({
+        from: cfg.smtp_from,
+        to: cfg.smtp_bcc_addr || cfg.smtp_from,
+        subject: `[Kopie Recall Manager] ${subject}`,
+        html,
+      })
+    }
     return { sent: toContacts.length + ccContacts.length }
+  })
+
+  ipcMain.handle('mail:compose', async (_e, data: CallData) => {
+    const db = getDb()
+    const cfg = getSmtpSettings()
+
+    type ContactRow = { id: number; name: string; email: string }
+    const getContact = (id: number) => db.prepare('SELECT * FROM contacts WHERE id = ?').get(id) as ContactRow
+
+    const toContacts = data.empfaengerIds.map(getContact).filter(Boolean)
+    const ccContacts = (data.ccIds ?? []).map(getContact).filter(Boolean)
+
+    const firma = data.firma ? ` - ${data.firma}` : ''
+    const subject = `RR -> ${data.anrufer}${firma}`
+
+    const recipientFirstName = toContacts[0]?.name.split(' ')[0] ?? 'zusammen'
+    const html = buildHtml(data, recipientFirstName)
+
+    const toStr = toContacts.map((c) => `${c.name} <${c.email}>`).join(', ')
+    const ccStr = ccContacts.map((c) => `${c.name} <${c.email}>`).join(', ')
+
+    const emlLines = [
+      'MIME-Version: 1.0',
+      'X-Unsent: 1',
+      `From: ${cfg.smtp_from || ''}`,
+      `To: ${toStr}`,
+      ...(ccStr ? [`CC: ${ccStr}`] : []),
+      `Subject: ${subject}`,
+      'Content-Type: text/html; charset="utf-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      html
+    ]
+    const emlContent = emlLines.join('\r\n')
+    const tmpFile = path.join(app.getPath('temp'), `recall_${Date.now()}.eml`)
+    fs.writeFileSync(tmpFile, emlContent, 'utf-8')
+    const err = await shell.openPath(tmpFile)
+    if (err) throw new Error(err)
+    return { success: true }
   })
 
   ipcMain.handle('mail:test', async (_e, testEmail: string) => {
